@@ -1,15 +1,5 @@
 package com.xtremelabs.robolectric;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.List;
-
-import org.apache.http.Header;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
-import org.apache.http.impl.client.DefaultRequestDirector;
-
 import android.accounts.AccountManager;
 import android.app.*;
 import android.appwidget.AppWidgetManager;
@@ -20,7 +10,9 @@ import android.content.pm.ResolveInfo;
 import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.database.CursorWrapper;
+import android.database.MergeCursor;
 import android.database.sqlite.*;
 import android.graphics.*;
 import android.graphics.drawable.*;
@@ -62,18 +54,27 @@ import android.view.animation.*;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.*;
 import android.widget.*;
-
+import com.xtremelabs.robolectric.bytecode.DirectCallPolicy.FullStackDirectCallPolicy;
 import com.xtremelabs.robolectric.bytecode.RobolectricInternals;
 import com.xtremelabs.robolectric.bytecode.ShadowWrangler;
-import com.xtremelabs.robolectric.bytecode.DirectCallPolicy.FullStackDirectCallPolicy;
 import com.xtremelabs.robolectric.shadows.*;
 import com.xtremelabs.robolectric.tester.org.apache.http.FakeHttpLayer;
 import com.xtremelabs.robolectric.tester.org.apache.http.HttpRequestInfo;
 import com.xtremelabs.robolectric.tester.org.apache.http.RequestMatcher;
 import com.xtremelabs.robolectric.util.Scheduler;
+import org.apache.http.Header;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.impl.client.DefaultRequestDirector;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.List;
 
 public class Robolectric {
     public static Application application;
+    public static final int DEFAULT_SDK_VERSION = 16;
 
     public static <T> T newInstanceOf(Class<T> clazz) {
         return RobolectricInternals.newInstanceOf(clazz);
@@ -139,6 +140,7 @@ public class Robolectric {
                 ShadowAlphaAnimation.class,
                 ShadowAndroidHttpClient.class,
                 ShadowAnimation.class,
+                ShadowAnimator.class,
                 ShadowAnimationDrawable.class,
                 ShadowAnimationSet.class,
                 ShadowAnimationUtils.class,
@@ -185,8 +187,9 @@ public class Robolectric {
                 ShadowContextThemeWrapper.class,
                 ShadowCookieManager.class,
                 ShadowCookieSyncManager.class,
-                ShadowCriteria.class,
+                ShadowCornerPathEffect.class,
                 ShadowCountDownTimer.class,
+                ShadowCriteria.class,
                 ShadowCursorAdapter.class,
                 ShadowCursorLoader.class,
                 ShadowCursorWrapper.class,
@@ -211,12 +214,15 @@ public class Robolectric {
                 ShadowGallery.class,
                 ShadowGeocoder.class,
                 ShadowGeoPoint.class,
+                ShadowGestureDetector.class,
                 ShadowGridView.class,
                 ShadowHandler.class,
                 ShadowHandlerThread.class,
                 ShadowHtml.class,
                 ShadowImageView.class,
                 ShadowInputMethodManager.class,
+                ShadowInputDevice.class,
+                ShadowInputEvent.class,
                 ShadowIntent.class,
                 ShadowIntentFilter.class,
                 ShadowIntentFilterAuthorityEntry.class,
@@ -229,6 +235,7 @@ public class Robolectric {
                 ShadowLayerDrawable.class,
                 ShadowLayoutInflater.class,
                 ShadowLayoutParams.class,
+                ShadowLinearGradient.class,
                 ShadowLinearLayout.class,
                 ShadowLinkMovementMethod.class,
                 ShadowListActivity.class,
@@ -249,6 +256,7 @@ public class Robolectric {
                 ShadowMediaRecorder.class,
                 ShadowMediaStore.ShadowImages.ShadowMedia.class,
                 ShadowMenuInflater.class,
+                ShadowMergeCursor.class,
                 ShadowMessage.class,
                 ShadowMessenger.class,
                 ShadowMimeTypeMap.class,
@@ -260,6 +268,7 @@ public class Robolectric {
                 ShadowNotificationManager.class,
                 ShadowNetworkInfo.class,
                 ShadowOverlayItem.class,
+                ShadowObjectAnimator.class,
                 ShadowPagerAdapter.class,
                 ShadowPaint.class,
                 ShadowPair.class,
@@ -286,6 +295,8 @@ public class Robolectric {
                 ShadowRadioGroup.class,
                 ShadowRatingBar.class,
                 ShadowRect.class,
+                ShadowRelativeLayout.class,
+                ShadowRelativeLayoutParams.class,
                 ShadowResolveInfo.class,
                 ShadowRemoteCallbackList.class,
                 ShadowRemoteViews.class,
@@ -293,8 +304,10 @@ public class Robolectric {
                 ShadowResourceCursorAdapter.class,
                 ShadowResources.class,
                 ShadowResources.ShadowTheme.class,
+                ShadowScaleGestureDetector.class,
                 ShadowScanResult.class,
                 ShadowScrollView.class,
+                ShadowScroller.class,
                 ShadowSeekBar.class,
                 ShadowSensorManager.class,
                 ShadowService.class,
@@ -332,11 +345,14 @@ public class Robolectric {
                 ShadowTextView.class,
                 ShadowTime.class,
                 ShadowToast.class,
+                ShadowTouchDelegate.class,
                 ShadowTranslateAnimation.class,
                 ShadowTypedArray.class,
                 ShadowTypedValue.class,
+                ShadowTypeface.class,
                 ShadowUriMatcher.class,
                 ShadowURLSpan.class,
+                ShadowValueAnimator.class,
                 ShadowVibrator.class,
                 ShadowVideoView.class,
                 ShadowView.class,
@@ -575,6 +591,10 @@ public class Robolectric {
         return (ShadowContextWrapper) shadowOf_(instance);
     }
 
+    public static ShadowCornerPathEffect shadowOf(CornerPathEffect instance) {
+        return (ShadowCornerPathEffect) Robolectric.shadowOf_(instance);
+    }
+
     public static ShadowCountDownTimer shadowOf(CountDownTimer instance) {
         return (ShadowCountDownTimer) Robolectric.shadowOf_(instance);
     }
@@ -655,6 +675,10 @@ public class Robolectric {
         return (ShadowGeocoder) shadowOf_(instance);
     }
 
+    public static ShadowGestureDetector shadowOf(GestureDetector instance) {
+        return (ShadowGestureDetector) shadowOf_(instance);
+    }
+
     public static ShadowGridView shadowOf(GridView instance) {
         return (ShadowGridView) shadowOf_(instance);
     }
@@ -675,6 +699,10 @@ public class Robolectric {
         return (ShadowInputMethodManager) shadowOf_(instance);
     }
 
+    public static ShadowInputDevice shadowOf(InputDevice instance) {
+        return (ShadowInputDevice) shadowOf_(instance);
+    }
+
     public static ShadowIntent shadowOf(Intent instance) {
         return (ShadowIntent) shadowOf_(instance);
     }
@@ -685,6 +713,10 @@ public class Robolectric {
 
     public static ShadowJsResult shadowOf(JsResult instance) {
         return (ShadowJsResult) shadowOf_(instance);
+    }
+
+    public static ShadowKeyEvent shadowOf(KeyEvent instance) {
+        return (ShadowKeyEvent) shadowOf_(instance);
     }
 
     public static ShadowKeyguardManager shadowOf(KeyguardManager instance) {
@@ -701,6 +733,10 @@ public class Robolectric {
 
     public static ShadowLayoutInflater shadowOf(LayoutInflater instance) {
         return (ShadowLayoutInflater) shadowOf_(instance);
+    }
+
+    public static ShadowLinearGradient shadowOf(LinearGradient instance) {
+        return (ShadowLinearGradient) shadowOf_(instance);
     }
 
     public static ShadowListActivity shadowOf(ListActivity instance) {
@@ -739,6 +775,10 @@ public class Robolectric {
         return (ShadowMenuInflater) shadowOf_(instance);
     }
 
+    public static ShadowMergeCursor shadowOf(MergeCursor instance) {
+        return (ShadowMergeCursor) shadowOf_(instance);
+    }
+    
     public static ShadowMessage shadowOf(Message instance) {
         return (ShadowMessage) shadowOf_(instance);
     }
@@ -855,8 +895,16 @@ public class Robolectric {
         return (ShadowResultReceiver) shadowOf_(instance);
     }
 
+    public static ShadowScaleGestureDetector shadowOf(ScaleGestureDetector instance) {
+        return (ShadowScaleGestureDetector) shadowOf_(instance);
+    }
+
     public static ShadowScanResult shadowOf(ScanResult instance) {
         return (ShadowScanResult) shadowOf_(instance);
+    }
+
+    public static ShadowScroller shadowOf(Scroller instance) {
+        return (ShadowScroller) shadowOf_(instance);
     }
 
     public static ShadowScrollView shadowOf(ScrollView instance) {
@@ -956,8 +1004,20 @@ public class Robolectric {
         return (ShadowToast) shadowOf_(instance);
     }
 
+    public static ShadowTouchDelegate shadowOf( TouchDelegate instance ){
+    	return (ShadowTouchDelegate) shadowOf_(instance);
+    }
+    
     public static ShadowTranslateAnimation shadowOf(TranslateAnimation instance) {
         return (ShadowTranslateAnimation) shadowOf_(instance);
+    }
+
+    public static ShadowTypedArray shadowOf(TypedArray instance) {
+        return (ShadowTypedArray) shadowOf_(instance);
+    }
+
+    public static ShadowTypeface shadowOf(Typeface instance) {
+        return (ShadowTypeface) shadowOf_(instance);
     }
 
     public static ShadowUriMatcher shadowOf(UriMatcher instance) {
@@ -1253,18 +1313,51 @@ public class Robolectric {
         return shadowOf(view).checkedPerformClick();
     }
 
+    /**
+     * Returns a textual representation of the appearance of the object.
+     *
+     * @param view the view to visualize
+     */
     public static String visualize(View view) {
         Canvas canvas = new Canvas();
         view.draw(canvas);
         return shadowOf(canvas).getDescription();
     }
 
+    /**
+     * Returns a textual representation of the appearance of the object.
+     *
+     * @param canvas the canvas to visualize
+     */
     public static String visualize(Canvas canvas) {
         return shadowOf(canvas).getDescription();
     }
 
+    /**
+     * Returns a textual representation of the appearance of the object.
+     *
+     * @param bitmap the bitmap to visualize
+     */
     public static String visualize(Bitmap bitmap) {
         return shadowOf(bitmap).getDescription();
+    }
+
+    /**
+     * Emits an xml-like representation of the view to System.out.
+     *
+     * @param view the view to dump
+     */
+    public static void dump(View view) {
+        shadowOf(view).dump();
+    }
+
+    /**
+     * Returns the text contained within this view.
+     *
+     * @param view the view to scan for text
+     */
+    public static String innerText(View view) {
+        return shadowOf(view).innerText();
     }
 
     /**
@@ -1282,18 +1375,31 @@ public class Robolectric {
         public static void setFinalStaticField(Class classWhichContainsField, String fieldName, Object newValue) {
             try {
                 Field field = classWhichContainsField.getDeclaredField(fieldName);
-                field.setAccessible(true);
+                setFinalStaticField(field, newValue);
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            } 
+        }
+
+        public static Object setFinalStaticField(Field field, Object newValue) {
+        	Object oldValue = null;
+        	
+            try {
+            	field.setAccessible(true);
 
                 Field modifiersField = Field.class.getDeclaredField("modifiers");
                 modifiersField.setAccessible(true);
                 modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
 
-                field.set(null, newValue);
+               oldValue = field.get(null);
+               field.set(null, newValue);
             } catch (NoSuchFieldException e) {
                 throw new RuntimeException(e);
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
+            
+            return oldValue;
         }
     }
 
