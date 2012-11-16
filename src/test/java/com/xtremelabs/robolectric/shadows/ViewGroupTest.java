@@ -3,8 +3,10 @@ package com.xtremelabs.robolectric.shadows;
 import android.app.Application;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
+import android.view.animation.LayoutAnimationController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -86,6 +88,14 @@ public class ViewGroupTest {
         root.setLayoutAnimationListener(animationListener);
 
         assertThat(root.getLayoutAnimationListener(), sameInstance(animationListener));
+    }
+    
+    @Test
+    public void testLayoutAnimation() {
+    	assertThat(root.getLayoutAnimation(), nullValue());
+    	LayoutAnimationController layoutAnim = new LayoutAnimationController(context, null);
+    	root.setLayoutAnimation(layoutAnim);
+    	assertThat(root.getLayoutAnimation(), sameInstance(layoutAnim));
     }
 
     @Test
@@ -238,5 +248,23 @@ public class ViewGroupTest {
         root.addView(child2, 1, layoutParams2);
         assertSame(layoutParams1, child1.getLayoutParams());
         assertSame(layoutParams2, child2.getLayoutParams());
+    }
+
+    @Test
+    public void removeView_removesView() throws Exception {
+        assertThat(root.getChildCount(), equalTo(3));
+        root.removeView(child1);
+        assertThat(root.getChildCount(), equalTo(2));
+        assertThat(root.getChildAt(0), sameInstance(child2));
+        assertThat(root.getChildAt(1), sameInstance((View) child3));
+        assertThat(child1.getParent(), nullValue());
+    }
+
+    @Test
+    public void removeView_resetsParentOnlyIfViewIsInViewGroup() throws Exception {
+        assertThat(root.getChildCount(), equalTo(3));
+        root.removeView(child3a);
+        assertThat(root.getChildCount(), equalTo(3));
+        assertThat(child3a.getParent(), sameInstance((ViewParent) child3));
     }
 }
