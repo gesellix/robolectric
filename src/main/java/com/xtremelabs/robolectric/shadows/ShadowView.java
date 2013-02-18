@@ -50,6 +50,8 @@ public class ShadowView {
     int top;
     int right;
     int bottom;
+    float x;
+    float y;
     private int paddingLeft;
     private int paddingTop;
     private int paddingRight;
@@ -69,7 +71,7 @@ public class ShadowView {
     private View.OnTouchListener onTouchListener;
     protected AttributeSet attributeSet;
     private boolean drawingCacheEnabled;
-    public Point scrollToCoordinates;
+    public Point scrollToCoordinates = new Point();
     private boolean didRequestLayout;
     private Drawable background;
     private Animation animation;
@@ -113,6 +115,9 @@ public class ShadowView {
         applyTagAttribute();
         applyOnClickAttribute();
         applyContentDescriptionAttribute();
+
+        // todo test
+        applyAlphaAttribute();
     }
 
     @Implementation
@@ -280,6 +285,11 @@ public class ShadowView {
      */
     public int getBackgroundColor() {
         return backgroundColor;
+    }
+
+    @Implementation
+    public void setBackground(Drawable d) {
+        setBackgroundDrawable(d);
     }
 
     @Implementation
@@ -736,6 +746,26 @@ public class ShadowView {
         this.bottom = bottom;
     }
 
+    @Implementation
+    public void setX(float newX) {
+        this.x = newX;
+    }
+
+    @Implementation
+    public void setY(float newY) {
+        this.y = newY;
+    }
+
+    @Implementation
+    public float getX() {
+        return this.x;
+    }
+
+    @Implementation
+    public float getY() {
+        return this.y;
+    }
+
     /**
      * Non-Android accessor.
      */
@@ -874,6 +904,13 @@ public class ShadowView {
         });
     }
 
+    private void applyAlphaAttribute() {
+        Float alpha = attributeSet.getAttributeFloatValue("android", "alpha", 1f);
+        if (alpha != null) {
+            setAlpha(alpha);
+        }
+    }
+
     private void applyContentDescriptionAttribute() {
         String contentDescription = attributeSet.getAttributeValue("android", "contentDescription");
         if (contentDescription != null) {
@@ -981,12 +1018,34 @@ public class ShadowView {
 
     @Implementation
     public void scrollTo(int x, int y) {
-        this.scrollToCoordinates = new Point(x, y);
+        try {
+            Method method = View.class.getDeclaredMethod("onScrollChanged", new Class[]{int.class, int.class, int.class, int.class});
+            method.setAccessible(true);
+            method.invoke(realView, x, y, scrollToCoordinates.x, scrollToCoordinates.y);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        scrollToCoordinates = new Point(x, y);
     }
 
     @Implementation
     public int getScrollX() {
         return scrollToCoordinates != null ? scrollToCoordinates.x : 0;
+    }
+
+    @Implementation
+    public int getScrollY() {
+        return scrollToCoordinates != null ? scrollToCoordinates.y : 0;
+    }
+
+    @Implementation
+    public void setScrollX(int scrollX){
+        scrollTo(scrollX, scrollToCoordinates.y);
+    }
+
+    @Implementation
+    public void setScrollY(int scrollY){
+        scrollTo(scrollToCoordinates.x, scrollY);
     }
 
     @Implementation
@@ -1007,11 +1066,6 @@ public class ShadowView {
     @Implementation
     public float getScaleY() {
         return scaleY;
-    }
-
-    @Implementation
-    public int getScrollY() {
-        return scrollToCoordinates != null ? scrollToCoordinates.y : 0;
     }
 
     @Implementation

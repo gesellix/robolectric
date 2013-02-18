@@ -10,7 +10,6 @@ import com.xtremelabs.robolectric.internal.Implements;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.List;
 
 import static com.xtremelabs.robolectric.Robolectric.shadowOf;
 
@@ -20,11 +19,12 @@ import static com.xtremelabs.robolectric.Robolectric.shadowOf;
 @SuppressWarnings({"UnusedDeclaration"})
 @Implements(ViewGroup.class)
 public class ShadowViewGroup extends ShadowView {
-    private List<View> children = new ArrayList<View>();
+    private ArrayList<View> children = new ArrayList<View>();
     private AnimationListener animListener;
     private LayoutAnimationController layoutAnim;
     private boolean disallowInterceptTouchEvent = false;
     private MotionEvent interceptedTouchEvent;
+    private ViewGroup.OnHierarchyChangeListener onHierarchyChangeListener;
 
     @Implementation
     @Override
@@ -66,6 +66,7 @@ public class ShadowViewGroup extends ShadowView {
                     "on the child's parent first.");
         }
         ((ViewGroup) realView).addView(child, -1);
+        requestLayout();
     }
 
     @Implementation
@@ -76,6 +77,7 @@ public class ShadowViewGroup extends ShadowView {
             children.add(index, child);
         }
         shadowOf(child).parent = this;
+        requestLayout();
     }
 
     @Implementation
@@ -122,14 +124,19 @@ public class ShadowViewGroup extends ShadowView {
     public void removeAllViews() {
         for (View child : children) {
             shadowOf(child).parent = null;
+            if (onHierarchyChangeListener != null) {
+                onHierarchyChangeListener.onChildViewRemoved(this.realView, child);
+            }
         }
         children.clear();
+        requestLayout();
     }
 
     @Implementation
     public void removeViewAt(int position) {
         View child = children.remove(position);
         shadowOf(child).parent = null;
+        requestLayout();
     }
 
     @Implementation
@@ -138,6 +145,7 @@ public class ShadowViewGroup extends ShadowView {
         if (removed) {
             shadowOf(view).parent = null;
         }
+        requestLayout();
     }
 
     @Override
@@ -162,6 +170,11 @@ public class ShadowViewGroup extends ShadowView {
                 child.clearFocus();
             }
         }
+    }
+
+    @Implementation
+    public void setOnHierarchyChangeListener(ViewGroup.OnHierarchyChangeListener onHierarchyChangeListener) {
+        this.onHierarchyChangeListener = onHierarchyChangeListener;
     }
 
     /**
